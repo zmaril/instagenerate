@@ -1,7 +1,9 @@
 (ns instagenerate.core
-  (:refer-clojure :exclude [record? ==])
+  (:refer-clojure :exclude [record? == <])
   (:require [instaparse.core :as insta]
-            [instaparse.combinators :as comb])
+            [instaparse.combinators :as comb]
+            [clojure.core.logic.arithmetic :refer [<]]
+            [instagenerate.strlenc :refer [strlenc]])
   (:use clojure.core.logic))
 
 (defn has-tag?
@@ -36,7 +38,7 @@
     ;(fresh [ptree-first]
     ;       (== remaining-parse-tree parse-tree)
     ;       (partial-parseo (get grammar k) strings ptree-first remaining-strings ()))
-    
+
     (and (has-tag? (get grammar k)) (not hide))
     (fresh [ptree-first]
            ;(conso ptree-first remaining-parse-tree parse-tree)
@@ -45,7 +47,7 @@
            (partial-parseo (cond-> (get grammar k)
                                    hide (assoc :hide true))
                            grammar strings ptree-first remaining-strings ()))
-    
+
     :else
     (fresh []
            (partial-parseo (cond-> (get grammar k)
@@ -140,7 +142,7 @@
            (conso (get-in combinator [:red :key]) rparse-tree parse-tree)
            (emptyo remaining-parse-tree)
            (partial-parseo (dissoc combinator :red) grammar strings rparse-tree remaining-strings remaining-parse-tree))
-    
+
     :else (combinator-parseo combinator grammar strings parse-tree remaining-strings remaining-parse-tree)))
 
 (defn full-parseo
@@ -171,8 +173,29 @@ by the parser. Could be infinite."
   (let [grammar (:grammar instaparser)]
     (if-not n
       (run* [q]
-            (fresh [pt]
-                  (full-parseo (get grammar (:start-production instaparser)) grammar q pt)))
+        (fresh [pt]
+          (full-parseo (get grammar (:start-production instaparser)) grammar q pt)))
       (run (or n 1) [q]
            (fresh [pt]
-                  (full-parseo (get grammar (:start-production instaparser)) grammar q pt))))))
+             (full-parseo (get grammar (:start-production instaparser)) grammar q pt))))))
+
+(defn generate-all-strings-of-length
+  [instaparser n]
+  (let [grammar (:grammar instaparser)]
+    (run* [q]
+      (fresh [pt]
+        (full-parseo (get grammar (:start-production instaparser)) grammar q pt)
+        (project [n q]
+                 (== n (count q)))
+        (strlenc q n)))))
+
+(defn generate-possible-strings-iteratively
+  [instaparser]
+  (->> (iterate inc 0)
+       (map (partial generate-all-strings-of-length instaparser))
+       flatten))
+
+(def simple
+  (insta/parser "A = 'a'*"))
+
+(generate-all-strings-of-length simple 2)
