@@ -6,6 +6,7 @@
 
 (defn altnt [& keys] (apply alt (map nt keys)))
 (defn hs [str] (hide (string-ci str)))
+(defn alts [& strs] (apply alt (map string-ci strs)))
 
 (defn ranged [a b]
   (map (comp str char) (range (int a) (inc (int b)))))
@@ -15,7 +16,10 @@
    (ranged \A \Z)
    (ranged \a \z)
    (ranged \0 \9)
-   ["_" "$"]))
+   ["_" "$" " "]))
+
+(def any-char 
+  (apply alt (take 2  (map string characters))))
 
 (def regexp-map
   {:regexp (cat  (nt :term) (star (cat (hs "|") (nt :term))))
@@ -27,17 +31,20 @@
    :base   (alt (nt :char) (nt :grouped) (nt :escaped)
                 (nt :bracketed))
    :grouped   (cat (hs "(") (nt :regexp) (hs ")"))
-   :bracketed (cat (hs "[") (star (altnt :range :char)) (hs "]"))
+   :bracketed (cat (hs "[") (opt (string "^")) (star (altnt :range :char :escaped)) (hs "]"))
    :range     (cat (nt :char) (hs "-") (nt :char)) 
    :escaped (cat (hs  "\\") (nt :char))
-   :char (apply alt (map string characters))})
+   :char any-char})
 
 (def parser
   (insta/parser regexp-map :start :regexp))
 
 (def escaped
   {"B" Epsilon
-   })
+   "s" (alts " " "\\n" "\\t")
+   "t" (string "\\t")
+   "n" (string "\\n")})
+
 (def transform
   {:regexp alt
    :term   cat
@@ -51,9 +58,14 @@
         "+" (plus arg))))
    :base    cat
    :grouped cat
-   :escaped (fn [{c :string}] (escaped c))
+   :escaped (fn [{c :string}] (println c)(escaped c))
    :char    string
-   :bracketed alt
+   :bracketed
+   (fn [& args]
+     (if (and (not (empty? args))
+              (=   "^" (first args)))
+       (cat (neg (apply alt (rest args))) any-char)
+       (apply alt args)))
    :range (fn [{a :string} {b :string}]
             (apply alt (map string (ranged (first a) (first b)))))})
 
