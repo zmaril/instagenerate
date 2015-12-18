@@ -189,4 +189,4 @@ by the parser. Could be infinite."
                   (full-parseo (get grammar (:start-production instaparser)) grammar q pt)))
       (run (or n 1) [q]
            (fresh [pt]
-                  (full-parseo (get grammar (:start-production instaparser)) grammar q pt))))))
+                  (full-parseo (get grammar (:start-production instaparser)) grammar q pt))))))(declare instaparseo)
