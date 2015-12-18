@@ -1,8 +1,9 @@
 (ns instagenerate.core
   (:refer-clojure :exclude [record? ==])
   (:require [instaparse.core :as insta]
-            [instaparse.combinators :as comb])
+            [instagenerate.regexp :refer [regexp->parser]])
   (:use clojure.core.logic))
+
 
 (defn has-tag?
   [combinator]
@@ -19,7 +20,20 @@
 
 (defmethod combinator-parseo :default
   [& args]
-  (throw (Exception. (pr-str args))))
+  (throw (Exception. (str "Can't combinator-parseo: " (:tag (first args))))))
+
+(defmethod combinator-parseo :regexp
+  [{r :regexp :keys [hide]} grammar strings parse-tree remaining-strings remaining-parse-tree]
+  (let [rc (regexp->parser (.toString r))] 
+    (fresh [rc-strings rc-parse-tree]
+      (instaparseo rc rc-strings rc-parse-tree)
+      (appendo rc-strings remaining-strings strings)
+      (if-not hide
+        (fresh [combined]
+          (is combined rc-strings (partial apply str))
+          (conso combined remaining-parse-tree parse-tree))
+        (== parse-tree remaining-parse-tree)))))
+
 
 (defmethod combinator-parseo :string
   [{s :string :keys [hide]} grammar strings parse-tree remaining-strings remaining-parse-tree]
